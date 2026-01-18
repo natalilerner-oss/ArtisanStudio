@@ -1,10 +1,10 @@
 # ArtisanStudio
 
-Welcome to ArtisanStudio - a creative workspace for artisans and makers.
+AI Image & Video Creator - Generate stunning visuals with Flux 1.1 Pro and CogVideoX
 
 ## Overview
 
-ArtisanStudio is a platform designed to help artisans, craftspeople, and makers manage their creative projects and workflows.
+ArtisanStudio is an AI-powered platform for generating high-quality images and videos. Leveraging state-of-the-art models like Flux 1.1 Pro for image generation and CogVideoX for video creation, ArtisanStudio enables creators to produce stunning visual content with ease.
 
 ## Project Status
 
