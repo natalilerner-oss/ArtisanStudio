@@ -15,7 +15,6 @@ out/
 *.swp
 *.swo
 *~
-.DS_Store
 
 # Environment files
 .env
