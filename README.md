@@ -6,9 +6,33 @@ Welcome to ArtisanStudio - a creative workspace for artisans and makers.
 
 ArtisanStudio is a platform designed to help artisans, craftspeople, and makers manage their creative projects and workflows.
 
+## Project Status
+
+⚠️ **Note**: ArtisanStudio is currently in the early development phase. The application code is being developed and will be added to this repository soon.
+
 ## Getting Started
 
-This repository is currently under initial setup. More documentation will be added as the project develops.
+### Prerequisites
+
+This section will be updated once the application development begins.
+
+### Installation
+
+Instructions for setting up the project locally will be provided as the codebase develops.
+
+### Running the Application
+
+Once the application code is available, this section will include:
+- Steps to run the app locally
+- Access to any deployed demo or staging environments
+- Testing instructions
+
+### Where to See the App?
+
+Currently, there is no live deployment available as the project is in initial setup. Check back here or watch this repository for updates on:
+- 🚀 Live demo URL (coming soon)
+- 📦 Local development instructions (coming soon)
+- 🧪 Testing guidelines (coming soon)
 
 ## CI/CD
 
