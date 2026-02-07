@@ -1,0 +1,23 @@
+# Render.com Infrastructure as Code
+# https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: artisan-studio
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: ASPNETCORE_URLS
+        value: http://+:5000
+      - key: REPLICATE_API_KEY
+        sync: false
+      - key: VIDEO_API_KEY
+        sync: false
+      - key: IMAGE_PROVIDER
+        value: flux
+      - key: VIDEO_PROVIDER
+        value: replicate
+    healthCheckPath: /api/health
