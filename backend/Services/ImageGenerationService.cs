@@ -10,7 +10,7 @@ public class ImageGenerationService : IImageGenerationService
     private readonly IStorageService _storageService;
     private readonly ILogger<ImageGenerationService> _logger;
     private readonly string _apiKey;
-    private readonly string _provider;
+    private readonly string _endpoint;
 
     public ImageGenerationService(
         IHttpClientFactory httpClientFactory,
@@ -21,15 +21,18 @@ public class ImageGenerationService : IImageGenerationService
         _httpClientFactory = httpClientFactory;
         _storageService = storageService;
         _logger = logger;
-        _apiKey = config["REPLICATE_API_KEY"] ?? Environment.GetEnvironmentVariable("REPLICATE_API_KEY") ?? "";
-        _provider = config["IMAGE_PROVIDER"] ?? "flux";
+        _apiKey = config["AZURE_DALLE_API_KEY"]
+            ?? Environment.GetEnvironmentVariable("AZURE_DALLE_API_KEY") ?? "";
+        _endpoint = config["AZURE_DALLE_ENDPOINT"]
+            ?? Environment.GetEnvironmentVariable("AZURE_DALLE_ENDPOINT")
+            ?? "https://mycompanyaimodel.openai.azure.com";
     }
 
     public async Task<ImageGenerationResponse> GenerateImageAsync(ImageGenerationRequest request)
     {
         try
         {
-            _logger.LogInformation("Generating image: {Prompt}", request.Prompt);
+            _logger.LogInformation("Generating image with DALL-E 3: {Prompt}", request.Prompt);
 
             if (string.IsNullOrEmpty(_apiKey))
             {
@@ -37,7 +40,7 @@ public class ImageGenerationService : IImageGenerationService
                 return new ImageGenerationResponse
                 {
                     Success = true,
-                    Message = "Demo mode - configure REPLICATE_API_KEY for real generation",
+                    Message = "Demo mode - configure AZURE_DALLE_API_KEY for real generation",
                     Images = new List<GeneratedImage>
                     {
                         new()
@@ -52,29 +55,26 @@ public class ImageGenerationService : IImageGenerationService
             }
 
             var client = _httpClientFactory.CreateClient();
-            client.DefaultRequestHeaders.Add("Authorization", $"Bearer {_apiKey}");
+            client.DefaultRequestHeaders.Add("api-key", _apiKey);
 
-            // Use Flux 1.1 Pro via Replicate
+            // Azure OpenAI DALL-E 3 API
+            var url = $"{_endpoint.TrimEnd('/')}/openai/deployments/dall-e-3/images/generations?api-version=2024-02-01";
+
             var payload = new
             {
-                version = "2c8e954decbf70b7607a4414e5785ef9e4de79f5074fe989a0965d3e1c5327e8",
-                input = new
-                {
-                    prompt = request.Prompt,
-                    aspect_ratio = GetAspectRatio(request.Size),
-                    output_format = "png",
-                    output_quality = request.Quality == "hd" ? 100 : 80,
-                    safety_tolerance = 2,
-                    prompt_upsampling = true
-                }
+                prompt = request.Prompt,
+                n = 1,
+                size = request.Size ?? "1024x1024",
+                quality = request.Quality ?? "standard",
+                style = request.Style ?? "vivid"
             };
 
-            var response = await client.PostAsJsonAsync("https://api.replicate.com/v1/predictions", payload);
-            
+            var response = await client.PostAsJsonAsync(url, payload);
+
             if (!response.IsSuccessStatusCode)
             {
                 var error = await response.Content.ReadAsStringAsync();
-                _logger.LogError("Replicate API error: {Error}", error);
+                _logger.LogError("Azure DALL-E 3 API error: {StatusCode} {Error}", response.StatusCode, error);
                 return new ImageGenerationResponse
                 {
                     Success = false,
@@ -82,48 +82,42 @@ public class ImageGenerationService : IImageGenerationService
                 };
             }
 
-            var prediction = await response.Content.ReadFromJsonAsync<JsonElement>();
-            var predictionId = prediction.GetProperty("id").GetString()!;
+            var result = await response.Content.ReadFromJsonAsync<JsonElement>();
 
-            // Poll for completion
-            var result = await PollForCompletionAsync(client, predictionId);
-
-            if (result.TryGetProperty("output", out var output))
+            if (result.TryGetProperty("data", out var dataArray) && dataArray.GetArrayLength() > 0)
             {
-                var imageUrl = output.ValueKind == JsonValueKind.String 
-                    ? output.GetString() 
-                    : output.ToString();
+                var firstImage = dataArray[0];
+                var imageUrl = firstImage.GetProperty("url").GetString()!;
+                var revisedPrompt = firstImage.TryGetProperty("revised_prompt", out var rp)
+                    ? rp.GetString() ?? "" : "";
 
-                if (!string.IsNullOrEmpty(imageUrl))
+                // Download and save locally
+                using var downloadClient = new HttpClient();
+                var imageBytes = await downloadClient.GetByteArrayAsync(imageUrl);
+                var savedUrl = await _storageService.SaveImageAsync(imageBytes, $"dalle3_{Guid.NewGuid()}.png");
+
+                return new ImageGenerationResponse
                 {
-                    // Download and save locally
-                    using var downloadClient = new HttpClient();
-                    var imageBytes = await downloadClient.GetByteArrayAsync(imageUrl);
-                    var savedUrl = await _storageService.SaveImageAsync(imageBytes, $"flux_{Guid.NewGuid()}.png");
-
-                    return new ImageGenerationResponse
+                    Success = true,
+                    Message = "Image generated successfully with DALL-E 3",
+                    Images = new List<GeneratedImage>
                     {
-                        Success = true,
-                        Message = "Image generated successfully with Flux 1.1 Pro",
-                        Images = new List<GeneratedImage>
+                        new()
                         {
-                            new()
-                            {
-                                Id = Guid.NewGuid().ToString(),
-                                Url = savedUrl,
-                                Prompt = request.Prompt,
-                                Model = "flux-1.1-pro"
-                            }
+                            Id = Guid.NewGuid().ToString(),
+                            Url = savedUrl,
+                            Prompt = request.Prompt,
+                            RevisedPrompt = revisedPrompt,
+                            Model = "dall-e-3"
                         }
-                    };
-                }
+                    }
+                };
             }
 
-            var errorMsg = result.TryGetProperty("error", out var err) ? err.GetString() : "Unknown error";
             return new ImageGenerationResponse
             {
                 Success = false,
-                Message = errorMsg
+                Message = "No image returned from API"
             };
         }
         catch (Exception ex)
@@ -136,28 +130,4 @@ public class ImageGenerationService : IImageGenerationService
             };
         }
     }
-
-    private async Task<JsonElement> PollForCompletionAsync(HttpClient client, string predictionId)
-    {
-        for (int i = 0; i < 120; i++)
-        {
-            await Task.Delay(1000);
-            
-            var response = await client.GetAsync($"https://api.replicate.com/v1/predictions/{predictionId}");
-            var result = await response.Content.ReadFromJsonAsync<JsonElement>();
-            
-            var status = result.GetProperty("status").GetString();
-            if (status == "succeeded" || status == "failed")
-                return result;
-        }
-        
-        throw new TimeoutException("Image generation timed out");
-    }
-
-    private static string GetAspectRatio(string size) => size switch
-    {
-        "1792x1024" => "16:9",
-        "1024x1792" => "9:16",
-        _ => "1:1"
-    };
 }

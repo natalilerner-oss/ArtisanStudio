@@ -358,9 +358,9 @@ function App() {
           {/* Model Info */}
           <div className="model-info">
             {activeTab === 'image' ? (
-              <p>🎨 Powered by <strong>Flux 1.1 Pro</strong> - State of the art image generation</p>
+              <p>🎨 Powered by <strong>DALL-E 3</strong> - State of the art image generation</p>
             ) : (
-              <p>🎬 Powered by <strong>CogVideoX</strong> - Advanced AI video creation</p>
+              <p>🎬 Powered by <strong>Sora</strong> - Advanced AI video creation</p>
             )}
           </div>
         </section>

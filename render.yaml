@@ -12,12 +12,12 @@ services:
         value: Production
       - key: ASPNETCORE_URLS
         value: http://+:5000
-      - key: REPLICATE_API_KEY
+      - key: AZURE_DALLE_ENDPOINT
+        value: https://mycompanyaimodel.openai.azure.com
+      - key: AZURE_DALLE_API_KEY
         sync: false
-      - key: VIDEO_API_KEY
+      - key: AZURE_SORA_ENDPOINT
+        value: https://natal-me0fuhjl-eastus2.openai.azure.com
+      - key: AZURE_SORA_API_KEY
         sync: false
-      - key: IMAGE_PROVIDER
-        value: flux
-      - key: VIDEO_PROVIDER
-        value: replicate
     healthCheckPath: /api/health

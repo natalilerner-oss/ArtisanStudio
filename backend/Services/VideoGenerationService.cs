@@ -11,7 +11,7 @@ public class VideoGenerationService : IVideoGenerationService
     private readonly IStorageService _storageService;
     private readonly ILogger<VideoGenerationService> _logger;
     private readonly string _apiKey;
-    private readonly string _provider;
+    private readonly string _endpoint;
 
     private static readonly ConcurrentDictionary<string, VideoJob> _jobs = new();
 
@@ -24,17 +24,18 @@ public class VideoGenerationService : IVideoGenerationService
         _httpClientFactory = httpClientFactory;
         _storageService = storageService;
         _logger = logger;
-        _apiKey = config["VIDEO_API_KEY"] ?? config["REPLICATE_API_KEY"] 
-            ?? Environment.GetEnvironmentVariable("VIDEO_API_KEY") 
-            ?? Environment.GetEnvironmentVariable("REPLICATE_API_KEY") ?? "";
-        _provider = config["VIDEO_PROVIDER"] ?? "replicate";
+        _apiKey = config["AZURE_SORA_API_KEY"]
+            ?? Environment.GetEnvironmentVariable("AZURE_SORA_API_KEY") ?? "";
+        _endpoint = config["AZURE_SORA_ENDPOINT"]
+            ?? Environment.GetEnvironmentVariable("AZURE_SORA_ENDPOINT")
+            ?? "https://natal-me0fuhjl-eastus2.openai.azure.com";
     }
 
     public async Task<VideoGenerationResponse> GenerateVideoAsync(VideoGenerationRequest request)
     {
         try
         {
-            _logger.LogInformation("Generating video: {Prompt}", request.Prompt);
+            _logger.LogInformation("Generating video with Azure Sora: {Prompt}", request.Prompt);
 
             var jobId = Guid.NewGuid().ToString();
 
@@ -55,7 +56,7 @@ public class VideoGenerationService : IVideoGenerationService
                     Success = true,
                     JobId = jobId,
                     Status = "completed",
-                    Message = "Demo mode - configure API keys for real generation",
+                    Message = "Demo mode - configure AZURE_SORA_API_KEY for real generation",
                     Video = new GeneratedVideo
                     {
                         Id = jobId,
@@ -67,27 +68,32 @@ public class VideoGenerationService : IVideoGenerationService
             }
 
             var client = _httpClientFactory.CreateClient();
-            client.DefaultRequestHeaders.Add("Authorization", $"Bearer {_apiKey}");
+            client.DefaultRequestHeaders.Add("api-key", _apiKey);
 
-            // Use Runway-compatible model via Replicate (CogVideoX or similar)
-            var payload = new
+            // Azure OpenAI Sora video generation API
+            var url = $"{_endpoint.TrimEnd('/')}/openai/deployments/sora/videos/generations?api-version=2025-03-01-preview";
+
+            var size = request.AspectRatio switch
             {
-                version = "2dce02f1b271dbe8836e9c1f9f99e7d5bb879f622a041559d2f4c52c9f0f81c5", // cogvideox-5b
-                input = new
-                {
-                    prompt = request.Prompt,
-                    num_frames = request.DurationSeconds * 8,
-                    guidance_scale = 6,
-                    num_inference_steps = 50
-                }
+                "9:16" => "1080x1920",
+                "1:1" => "1080x1080",
+                _ => "1920x1080"  // 16:9 default
             };
 
-            var response = await client.PostAsJsonAsync("https://api.replicate.com/v1/predictions", payload);
-            
+            var payload = new
+            {
+                prompt = request.Prompt,
+                n = 1,
+                size,
+                duration_seconds = request.DurationSeconds
+            };
+
+            var response = await client.PostAsJsonAsync(url, payload);
+
             if (!response.IsSuccessStatusCode)
             {
                 var error = await response.Content.ReadAsStringAsync();
-                _logger.LogError("Video API error: {Error}", error);
+                _logger.LogError("Azure Sora API error: {StatusCode} {Error}", response.StatusCode, error);
                 return new VideoGenerationResponse
                 {
                     Success = false,
@@ -95,27 +101,74 @@ public class VideoGenerationService : IVideoGenerationService
                 };
             }
 
-            var prediction = await response.Content.ReadFromJsonAsync<JsonElement>();
-            var predictionId = prediction.GetProperty("id").GetString()!;
+            var result = await response.Content.ReadFromJsonAsync<JsonElement>();
 
-            _jobs[jobId] = new VideoJob
+            // Check if the response includes a job/operation ID for async polling
+            if (result.TryGetProperty("id", out var idProp))
             {
-                JobId = jobId,
-                ProviderJobId = predictionId,
-                Status = "processing",
-                Prompt = request.Prompt,
-                CreatedAt = DateTime.UtcNow
-            };
+                var operationId = idProp.GetString()!;
 
-            // Start background polling
-            _ = PollVideoStatusAsync(jobId);
+                _jobs[jobId] = new VideoJob
+                {
+                    JobId = jobId,
+                    ProviderJobId = operationId,
+                    Status = "processing",
+                    Prompt = request.Prompt,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                // Start background polling
+                _ = PollVideoStatusAsync(jobId);
+
+                return new VideoGenerationResponse
+                {
+                    Success = true,
+                    JobId = jobId,
+                    Status = "processing",
+                    Message = "Video generation started. Check status for completion."
+                };
+            }
+
+            // Synchronous response — video returned directly
+            if (result.TryGetProperty("data", out var dataArray) && dataArray.GetArrayLength() > 0)
+            {
+                var videoData = dataArray[0];
+                var videoUrl = videoData.GetProperty("url").GetString()!;
+
+                using var downloadClient = new HttpClient();
+                var videoBytes = await downloadClient.GetByteArrayAsync(videoUrl);
+                var savedUrl = await _storageService.SaveVideoAsync(videoBytes, $"sora_{jobId}.mp4");
+
+                _jobs[jobId] = new VideoJob
+                {
+                    JobId = jobId,
+                    Status = "completed",
+                    Prompt = request.Prompt,
+                    VideoUrl = savedUrl,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                return new VideoGenerationResponse
+                {
+                    Success = true,
+                    JobId = jobId,
+                    Status = "completed",
+                    Video = new GeneratedVideo
+                    {
+                        Id = jobId,
+                        Url = savedUrl,
+                        Prompt = request.Prompt,
+                        Model = "sora",
+                        DurationSeconds = request.DurationSeconds,
+                        CreatedAt = DateTime.UtcNow
+                    }
+                };
+            }
 
             return new VideoGenerationResponse
             {
-                Success = true,
-                JobId = jobId,
-                Status = "processing",
-                Message = "Video generation started. Check status for completion."
+                Success = false,
+                Message = "Unexpected response from Azure Sora API"
             };
         }
         catch (Exception ex)
@@ -153,7 +206,7 @@ public class VideoGenerationService : IVideoGenerationService
                     Id = jobId,
                     Url = job.VideoUrl,
                     Prompt = job.Prompt,
-                    Model = "cogvideox",
+                    Model = "sora",
                     DurationSeconds = 5,
                     CreatedAt = job.CreatedAt
                 }
@@ -186,47 +239,55 @@ public class VideoGenerationService : IVideoGenerationService
             return;
 
         var client = _httpClientFactory.CreateClient();
-        client.DefaultRequestHeaders.Add("Authorization", $"Bearer {_apiKey}");
+        client.DefaultRequestHeaders.Add("api-key", _apiKey);
 
-        for (int i = 0; i < 300; i++) // Max 5 minutes
+        var pollUrl = $"{_endpoint.TrimEnd('/')}/openai/deployments/sora/videos/generations/{job.ProviderJobId}?api-version=2025-03-01-preview";
+
+        for (int i = 0; i < 120; i++) // Max ~6 minutes
         {
             await Task.Delay(3000);
 
             try
             {
-                var response = await client.GetAsync($"https://api.replicate.com/v1/predictions/{job.ProviderJobId}");
+                var response = await client.GetAsync(pollUrl);
                 var result = await response.Content.ReadFromJsonAsync<JsonElement>();
-                
-                var status = result.GetProperty("status").GetString();
 
-                if (status == "succeeded")
+                var status = result.TryGetProperty("status", out var statusProp)
+                    ? statusProp.GetString() : null;
+
+                if (status == "succeeded" || status == "completed")
                 {
                     string? videoUrl = null;
-                    if (result.TryGetProperty("output", out var output))
+                    if (result.TryGetProperty("data", out var dataArray) && dataArray.GetArrayLength() > 0)
                     {
-                        videoUrl = output.ValueKind == JsonValueKind.String
-                            ? output.GetString()
-                            : output.ValueKind == JsonValueKind.Array && output.GetArrayLength() > 0
-                                ? output[0].GetString()
-                                : null;
+                        videoUrl = dataArray[0].GetProperty("url").GetString();
+                    }
+                    else if (result.TryGetProperty("result", out var resultProp)
+                             && resultProp.TryGetProperty("url", out var urlProp))
+                    {
+                        videoUrl = urlProp.GetString();
                     }
 
                     if (!string.IsNullOrEmpty(videoUrl))
                     {
-                        // Download and save locally
                         using var downloadClient = new HttpClient();
                         var videoBytes = await downloadClient.GetByteArrayAsync(videoUrl);
-                        var savedUrl = await _storageService.SaveVideoAsync(videoBytes, $"video_{jobId}.mp4");
+                        var savedUrl = await _storageService.SaveVideoAsync(videoBytes, $"sora_{jobId}.mp4");
 
                         job.Status = "completed";
                         job.VideoUrl = savedUrl;
                     }
+                    else
+                    {
+                        job.Status = "failed";
+                        job.Error = "Video completed but no URL returned";
+                    }
                     return;
                 }
-                else if (status == "failed")
+                else if (status == "failed" || status == "cancelled")
                 {
                     job.Status = "failed";
-                    job.Error = result.TryGetProperty("error", out var err) ? err.GetString() : "Unknown error";
+                    job.Error = result.TryGetProperty("error", out var err) ? err.GetString() : "Video generation failed";
                     return;
                 }
             }
