@@ -1,0 +1,55 @@
+# =============================================================================
+# Artisan Studio - Docker Compose Configuration
+# =============================================================================
+# Usage:
+#   Development:  docker-compose up
+#   Production:   docker-compose -f docker-compose.yml -f docker-compose.prod.yml up
+# =============================================================================
+
+version: '3.8'
+
+services:
+  # ---------------------------------------------------------------------------
+  # Artisan Studio Application
+  # ---------------------------------------------------------------------------
+  artisan-studio:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: artisan-studio
+    ports:
+      - "5000:5000"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:5000
+      # AI Provider Configuration
+      - REPLICATE_API_KEY=${REPLICATE_API_KEY:-}
+      - VIDEO_API_KEY=${VIDEO_API_KEY:-}
+      - IMAGE_PROVIDER=${IMAGE_PROVIDER:-flux}
+      - VIDEO_PROVIDER=${VIDEO_PROVIDER:-replicate}
+    volumes:
+      # Persist generated media
+      - artisan-media:/app/wwwroot/media
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - artisan-network
+
+# -----------------------------------------------------------------------------
+# Volumes
+# -----------------------------------------------------------------------------
+volumes:
+  artisan-media:
+    driver: local
+
+# -----------------------------------------------------------------------------
+# Networks
+# -----------------------------------------------------------------------------
+networks:
+  artisan-network:
+    driver: bridge
