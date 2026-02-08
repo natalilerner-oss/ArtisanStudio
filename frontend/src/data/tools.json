@@ -1,0 +1,123 @@
+[
+  {
+    "id": "ms-designer",
+    "name": "Microsoft Designer",
+    "category": "image",
+    "description": "AI-powered graphic design tool integrated with Microsoft 365. Create social media posts, invitations, and marketing visuals with AI-generated images and templates.",
+    "pricing": "freemium",
+    "microsoftIntegration": true,
+    "hebrewSupport": true,
+    "bestFor": ["social media graphics", "marketing materials", "presentations", "quick designs"],
+    "url": "https://designer.microsoft.com"
+  },
+  {
+    "id": "copilot-image",
+    "name": "Copilot Image Creator",
+    "category": "image",
+    "description": "Microsoft's AI image generator powered by DALL-E 3. Create images directly in Bing, Edge, or Microsoft 365 apps with natural language prompts.",
+    "pricing": "free",
+    "microsoftIntegration": true,
+    "hebrewSupport": true,
+    "bestFor": ["quick image generation", "presentation visuals", "concept art", "brainstorming"],
+    "url": "https://copilot.microsoft.com"
+  },
+  {
+    "id": "midjourney",
+    "name": "Midjourney",
+    "category": "image",
+    "description": "Premium AI image generator known for stunning artistic quality. Creates highly detailed, stylized images perfect for creative projects and professional visuals.",
+    "pricing": "paid",
+    "microsoftIntegration": false,
+    "hebrewSupport": false,
+    "bestFor": ["artistic visuals", "concept art", "brand imagery", "creative campaigns"],
+    "url": "https://midjourney.com"
+  },
+  {
+    "id": "canva-ai",
+    "name": "Canva AI",
+    "category": "image",
+    "description": "All-in-one design platform with AI-powered features including Magic Design, text-to-image, background removal, and smart templates for any visual content.",
+    "pricing": "freemium",
+    "microsoftIntegration": false,
+    "hebrewSupport": true,
+    "bestFor": ["presentations", "social media", "marketing", "team collaboration"],
+    "url": "https://canva.com"
+  },
+  {
+    "id": "gamma",
+    "name": "Gamma.app",
+    "category": "presentation",
+    "description": "AI-powered presentation builder that creates beautiful slides, documents, and webpages from a simple prompt. No design skills needed.",
+    "pricing": "freemium",
+    "microsoftIntegration": false,
+    "hebrewSupport": true,
+    "bestFor": ["pitch decks", "business presentations", "reports", "landing pages"],
+    "url": "https://gamma.app"
+  },
+  {
+    "id": "clipchamp",
+    "name": "Clipchamp",
+    "category": "video",
+    "description": "Microsoft's video editor with AI-powered features including text-to-speech, auto-captions, and smart templates. Built into Windows 11 and Microsoft 365.",
+    "pricing": "freemium",
+    "microsoftIntegration": true,
+    "hebrewSupport": true,
+    "bestFor": ["video editing", "social media videos", "screen recordings", "business videos"],
+    "url": "https://clipchamp.com"
+  },
+  {
+    "id": "synthesia",
+    "name": "Synthesia",
+    "category": "video",
+    "description": "AI video generation platform with realistic AI avatars. Create professional talking-head videos in 140+ languages without cameras or studios.",
+    "pricing": "paid",
+    "microsoftIntegration": false,
+    "hebrewSupport": true,
+    "bestFor": ["training videos", "corporate communications", "multilingual content", "explainer videos"],
+    "url": "https://synthesia.io"
+  },
+  {
+    "id": "heygen",
+    "name": "HeyGen",
+    "category": "video",
+    "description": "AI video platform for creating studio-quality videos with customizable AI avatars, voice cloning, and real-time translation for global audiences.",
+    "pricing": "freemium",
+    "microsoftIntegration": false,
+    "hebrewSupport": true,
+    "bestFor": ["marketing videos", "sales outreach", "localization", "product demos"],
+    "url": "https://heygen.com"
+  },
+  {
+    "id": "runway",
+    "name": "Runway ML",
+    "category": "video",
+    "description": "Advanced AI creative suite offering text-to-video, image-to-video, and video editing with Gen-2 model. Industry-leading quality for creative professionals.",
+    "pricing": "freemium",
+    "microsoftIntegration": false,
+    "hebrewSupport": false,
+    "bestFor": ["creative video production", "visual effects", "film production", "artistic projects"],
+    "url": "https://runwayml.com"
+  },
+  {
+    "id": "d-id",
+    "name": "D-ID",
+    "category": "video",
+    "description": "AI-powered platform specializing in talking avatar videos. Transform photos into speaking characters with natural lip-sync and expressions.",
+    "pricing": "freemium",
+    "microsoftIntegration": false,
+    "hebrewSupport": true,
+    "bestFor": ["personalized videos", "customer engagement", "e-learning", "digital humans"],
+    "url": "https://d-id.com"
+  },
+  {
+    "id": "pictory",
+    "name": "Pictory",
+    "category": "video",
+    "description": "AI tool that transforms long-form content into short, branded videos. Automatically extracts highlights from text, articles, and recordings.",
+    "pricing": "freemium",
+    "microsoftIntegration": false,
+    "hebrewSupport": false,
+    "bestFor": ["content repurposing", "blog-to-video", "LinkedIn content", "social media clips"],
+    "url": "https://pictory.ai"
+  }
+]
