@@ -24,6 +24,7 @@ builder.Services.AddSingleton<IImageGenerationService, ImageGenerationService>()
 builder.Services.AddSingleton<IVideoGenerationService, VideoGenerationService>();
 builder.Services.AddSingleton<IStorageService, LocalStorageService>();
 builder.Services.AddSingleton<IPromptEnhancementService, PromptEnhancementService>();
+builder.Services.AddSingleton<IPresentationService, PresentationService>();
 
 var app = builder.Build();
 

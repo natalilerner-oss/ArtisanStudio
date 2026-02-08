@@ -19,3 +19,11 @@ public interface IStorageService
     Task<string> SaveVideoAsync(byte[] data, string filename);
     string GetMediaUrl(string filename);
 }
+
+public interface IPresentationService
+{
+    Task<PresentationResponse> GeneratePresentationAsync(PresentationRequest request);
+    Task<PresentationResponse> GetPresentationStatusAsync(string id);
+    Task<Presentation?> GetPresentationAsync(string id);
+    Task<byte[]?> ExportPresentationAsync(string id, string format);
+}
