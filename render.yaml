@@ -17,7 +17,7 @@ services:
       - key: AZURE_DALLE_API_KEY
         sync: false
       - key: AZURE_SORA_ENDPOINT
-        value: https://natal-me0fuhjl-eastus2.openai.azure.com
+        value: https://natal-me0fuhjl-eastus2.cognitiveservices.azure.com
       - key: AZURE_SORA_API_KEY
         sync: false
     healthCheckPath: /api/health
