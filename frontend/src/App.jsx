@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Sparkles, Video, Image, Loader2, Download, RefreshCw, Wand2, Film, Zap, Info, X } from 'lucide-react';
 import './App.css';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 function App() {
   const [activeTab, setActiveTab] = useState('image');
