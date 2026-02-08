@@ -210,8 +210,8 @@ public class VideoGenerationService : IVideoGenerationService
         var client = _httpClientFactory.CreateClient();
         client.DefaultRequestHeaders.Add("Api-key", _apiKey);
 
-        var baseJobUrl = $"{_endpoint.TrimEnd('/')}/openai/v1/video/generations/jobs/{job.ProviderJobId}";
-        var pollUrl = $"{baseJobUrl}?api-version=preview";
+        var baseUrl = _endpoint.TrimEnd('/');
+        var pollUrl = $"{baseUrl}/openai/v1/video/generations/jobs/{job.ProviderJobId}?api-version=preview";
 
         for (int i = 0; i < 120; i++) // Max ~10 minutes
         {
@@ -229,14 +229,16 @@ public class VideoGenerationService : IVideoGenerationService
 
                 if (status == "succeeded" || status == "completed")
                 {
-                    // First try to extract URL from the status response itself
-                    string? videoUrl = ExtractVideoUrl(result);
-
-                    // If no URL in status response, fetch from the /content endpoint
-                    if (string.IsNullOrEmpty(videoUrl))
+                    // Get the generation ID from the generations array
+                    if (result.TryGetProperty("generations", out var generations)
+                        && generations.GetArrayLength() > 0)
                     {
-                        var contentUrl = $"{baseJobUrl}/content/video?api-version=preview";
-                        _logger.LogInformation("Fetching video content from: {Url}", contentUrl);
+                        var generationId = generations[0].GetProperty("id").GetString()!;
+                        _logger.LogInformation("Generation ID: {Id}", generationId);
+
+                        // Download video using generation ID (NOT job ID)
+                        var contentUrl = $"{baseUrl}/openai/v1/video/generations/{generationId}/content/video?api-version=preview";
+                        _logger.LogInformation("Fetching video from: {Url}", contentUrl);
 
                         var contentResponse = await client.GetAsync(contentUrl);
                         if (contentResponse.IsSuccessStatusCode)
@@ -247,52 +249,19 @@ public class VideoGenerationService : IVideoGenerationService
                                 var savedUrl = await _storageService.SaveVideoAsync(videoBytes, $"sora_{jobId}.mp4");
                                 job.Status = "completed";
                                 job.VideoUrl = savedUrl;
+                                _logger.LogInformation("Video saved: {Url} ({Size} bytes)", savedUrl, videoBytes.Length);
                                 return;
                             }
                         }
                         else
                         {
-                            // Try alternate content paths
-                            var altContentUrl = $"{baseJobUrl}/content?api-version=preview";
-                            _logger.LogInformation("Trying alternate content URL: {Url}", altContentUrl);
-
-                            var altResponse = await client.GetAsync(altContentUrl);
-                            if (altResponse.IsSuccessStatusCode)
-                            {
-                                var contentType = altResponse.Content.Headers.ContentType?.MediaType ?? "";
-                                if (contentType.StartsWith("video/"))
-                                {
-                                    var videoBytes = await altResponse.Content.ReadAsByteArrayAsync();
-                                    var savedUrl = await _storageService.SaveVideoAsync(videoBytes, $"sora_{jobId}.mp4");
-                                    job.Status = "completed";
-                                    job.VideoUrl = savedUrl;
-                                    return;
-                                }
-                                else
-                                {
-                                    // JSON response with URL
-                                    var contentResult = await altResponse.Content.ReadFromJsonAsync<JsonElement>();
-                                    _logger.LogInformation("Content endpoint response: {Response}", contentResult.ToString());
-                                    videoUrl = ExtractVideoUrl(contentResult);
-                                }
-                            }
+                            var errorBody = await contentResponse.Content.ReadAsStringAsync();
+                            _logger.LogError("Content download failed: {Status} {Error}", contentResponse.StatusCode, errorBody);
                         }
                     }
 
-                    if (!string.IsNullOrEmpty(videoUrl))
-                    {
-                        using var downloadClient = new HttpClient();
-                        var dlBytes = await downloadClient.GetByteArrayAsync(videoUrl);
-                        var savedPath = await _storageService.SaveVideoAsync(dlBytes, $"sora_{jobId}.mp4");
-
-                        job.Status = "completed";
-                        job.VideoUrl = savedPath;
-                    }
-                    else
-                    {
-                        job.Status = "failed";
-                        job.Error = "Video completed but could not retrieve video content";
-                    }
+                    job.Status = "failed";
+                    job.Error = "Video completed but could not retrieve video content";
                     return;
                 }
                 else if (status == "failed" || status == "cancelled")
@@ -312,40 +281,6 @@ public class VideoGenerationService : IVideoGenerationService
 
         job.Status = "failed";
         job.Error = "Timeout waiting for video generation";
-    }
-
-    private static string? ExtractVideoUrl(JsonElement result)
-    {
-        // Try "generations[0].url"
-        if (result.TryGetProperty("generations", out var generations)
-            && generations.GetArrayLength() > 0)
-        {
-            var first = generations[0];
-            if (first.TryGetProperty("url", out var urlProp))
-                return urlProp.GetString();
-            if (first.TryGetProperty("video", out var video)
-                && video.TryGetProperty("url", out var vidUrl))
-                return vidUrl.GetString();
-        }
-
-        // Try "data[0].url"
-        if (result.TryGetProperty("data", out var data)
-            && data.GetArrayLength() > 0)
-        {
-            if (data[0].TryGetProperty("url", out var urlProp))
-                return urlProp.GetString();
-        }
-
-        // Try "result.url"
-        if (result.TryGetProperty("result", out var res)
-            && res.TryGetProperty("url", out var resUrl))
-            return resUrl.GetString();
-
-        // Try top-level "url"
-        if (result.TryGetProperty("url", out var topUrl))
-            return topUrl.GetString();
-
-        return null;
     }
 
     private class VideoJob
