@@ -1,4 +1,3 @@
-using ArtisanStudio.Models;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Drawing;
 using DocumentFormat.OpenXml.Packaging;
@@ -6,12 +5,13 @@ using DocumentFormat.OpenXml.Presentation;
 
 using D = DocumentFormat.OpenXml.Drawing;
 using P = DocumentFormat.OpenXml.Presentation;
+using AppModels = ArtisanStudio.Models;
 
 namespace ArtisanStudio.Services;
 
 public static class PptxExportService
 {
-    public static byte[] GeneratePptx(Presentation presentation)
+    public static byte[] GeneratePptx(AppModels.Presentation presentation)
     {
         using var stream = new MemoryStream();
         using (var pptDoc = PresentationDocument.Create(stream, PresentationDocumentType.Presentation, true))
@@ -70,7 +70,7 @@ public static class PptxExportService
         return stream.ToArray();
     }
 
-    private static P.Slide CreateSlide(Slide slideData, string style)
+    private static P.Slide CreateSlide(AppModels.Slide slideData, string style)
     {
         var slide = new P.Slide(
             new CommonSlideData(
