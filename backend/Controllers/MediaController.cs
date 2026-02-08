@@ -11,17 +11,20 @@ public class MediaController : ControllerBase
     private readonly IImageGenerationService _imageService;
     private readonly IVideoGenerationService _videoService;
     private readonly IPromptEnhancementService _promptService;
+    private readonly IPresentationService _presentationService;
     private readonly ILogger<MediaController> _logger;
 
     public MediaController(
         IImageGenerationService imageService,
         IVideoGenerationService videoService,
         IPromptEnhancementService promptService,
+        IPresentationService presentationService,
         ILogger<MediaController> logger)
     {
         _imageService = imageService;
         _videoService = videoService;
         _promptService = promptService;
+        _presentationService = presentationService;
         _logger = logger;
     }
 
@@ -81,6 +84,65 @@ public class MediaController : ControllerBase
     }
 
     /// <summary>
+    /// Generate an AI presentation from a text prompt
+    /// </summary>
+    [HttpPost("presentations/generate")]
+    public async Task<ActionResult<PresentationResponse>> GeneratePresentation([FromBody] PresentationRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Prompt))
+            return BadRequest(new { error = "Prompt is required" });
+
+        _logger.LogInformation("Presentation generation request: {Prompt}", request.Prompt);
+
+        var result = await _presentationService.GeneratePresentationAsync(request);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Check the status of a presentation generation job
+    /// </summary>
+    [HttpGet("presentations/{id}/status")]
+    public async Task<ActionResult<PresentationResponse>> GetPresentationStatus(string id)
+    {
+        _logger.LogInformation("Presentation status check: {Id}", id);
+
+        var result = await _presentationService.GetPresentationStatusAsync(id);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Get the full presentation data
+    /// </summary>
+    [HttpGet("presentations/{id}")]
+    public async Task<ActionResult<Presentation>> GetPresentation(string id)
+    {
+        var result = await _presentationService.GetPresentationAsync(id);
+        if (result == null)
+            return NotFound(new { error = "Presentation not found" });
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Download presentation in PPTX or PDF format
+    /// </summary>
+    [HttpGet("presentations/{id}/download")]
+    public async Task<IActionResult> DownloadPresentation(string id, [FromQuery] string format = "pptx")
+    {
+        _logger.LogInformation("Presentation download: {Id} format={Format}", id, format);
+
+        var data = await _presentationService.ExportPresentationAsync(id, format);
+        if (data == null)
+            return NotFound(new { error = "Presentation not found or not ready" });
+
+        var contentType = format == "pptx"
+            ? "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+            : "application/pdf";
+        var fileName = $"presentation.{format}";
+
+        return File(data, contentType, fileName);
+    }
+
+    /// <summary>
     /// Health check endpoint
     /// </summary>
     [HttpGet("health")]
@@ -90,7 +152,7 @@ public class MediaController : ControllerBase
         {
             status = "healthy",
             timestamp = DateTime.UtcNow,
-            version = "2.0.0"
+            version = "3.0.0"
         });
     }
 }
