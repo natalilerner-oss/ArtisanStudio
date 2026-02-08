@@ -445,7 +445,7 @@ function App() {
 
       {/* Footer */}
       <footer className="footer">
-        <p>Artisan Studio • AI-Powered Creative Tools • Built by Natali Lerner</p>
+        <p>Artisan Studio • AI-Powered Creative Tools • Powered by <strong>DocumentInsight.ai</strong> • Created by Natali Koifman</p>
       </footer>
     </div>
   );
